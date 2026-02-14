@@ -32,10 +32,11 @@ struct Cli {
 enum Commands {
     /// Verifica que los enlaces entre código y documentación sean válidos.
     Check {
-        /// Archivo de código fuente (TypeScript, Rust).
-        code_file: PathBuf,
         /// Archivo de documentación (Markdown).
         doc_file: PathBuf,
+        /// Archivos de código fuente (TypeScript, Rust).
+        #[arg(required = true)]
+        code_files: Vec<PathBuf>,
         /// Directorio raíz del proyecto (para buscar baseline).
         #[arg(long, default_value = ".")]
         project_root: PathBuf,
@@ -80,10 +81,10 @@ fn main() -> Result<()> {
 
     match cli.command {
         Commands::Check {
-            code_file,
+            code_files,
             doc_file,
             project_root,
-        } => run_check(&code_file, &doc_file, &project_root),
+        } => run_check(&code_files, &doc_file, &project_root),
 
         Commands::Scaffold {
             code_file,
@@ -105,12 +106,14 @@ fn main() -> Result<()> {
     }
 }
 
-fn run_check(code_file: &Path, doc_file: &Path, project_root: &Path) -> Result<()> {
-    if !code_file.exists() {
-        anyhow::bail!(
-            "Archivo de código no encontrado: {}\n    -> Verifica que la ruta sea correcta.",
-            code_file.display()
-        );
+fn run_check(code_files: &[PathBuf], doc_file: &Path, project_root: &Path) -> Result<()> {
+    for code_file in code_files {
+        if !code_file.exists() {
+            anyhow::bail!(
+                "Archivo de código no encontrado: {}\n    -> Verifica que la ruta sea correcta.",
+                code_file.display()
+            );
+        }
     }
     if !doc_file.exists() {
         anyhow::bail!(
@@ -120,22 +123,28 @@ fn run_check(code_file: &Path, doc_file: &Path, project_root: &Path) -> Result<(
     }
 
     println!("DocsGuard — Verificando enlaces código ↔ documentación\n");
-    println!("  Código: {}", code_file.display());
-    println!("  Docs:   {}\n", doc_file.display());
+    println!("  Docs: {}", doc_file.display());
+    println!("  Código: {} archivos", code_files.len());
 
-    let code_entities =
-        code_parser::parse_code_file(code_file).context("Error al parsear el archivo de código")?;
+    let mut all_code_entities = Vec::new();
+    for code_file in code_files {
+        println!("    -> {}", code_file.display());
+        let mut entities = code_parser::parse_code_file(code_file)
+            .context(format!("Error al parsear {}", code_file.display()))?;
+        all_code_entities.append(&mut entities);
+    }
+    println!(); // spacer
 
     let doc_sections = doc_parser::parse_markdown_file(doc_file)
         .context("Error al parsear el archivo de documentación")?;
 
     println!(
-        "  Encontradas {} funciones en código, {} secciones en docs.\n",
-        code_entities.len(),
+        "  Encontradas {} funciones en código (total), {} secciones en docs.\n",
+        all_code_entities.len(),
         doc_sections.len()
     );
 
-    let results = validator::validate_links(&code_entities, &doc_sections);
+    let results = validator::validate_links(&all_code_entities, &doc_sections);
 
     // Aplicar baseline si existe
     let (results, baseline_filtered) = match baseline::Baseline::load(project_root)? {

@@ -61,6 +61,4 @@ jobs:
       - run: cargo build --release
       - name: DocsGuard checks itself
         run: |
-          ./target/release/docsguard check src/core/validator.rs docs/api.md
-          ./target/release/docsguard check src/parser/code_parser.rs docs/api.md
-          ./target/release/docsguard check src/parser/doc_parser.rs docs/api.md
+          ./target/release/docsguard check docs/api.md src/core/validator.rs src/parser/code_parser.rs src/parser/doc_parser.rs

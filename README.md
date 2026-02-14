@@ -78,13 +78,14 @@ Resumen: 0 errores, 0 advertencias, 1 total
 
 ## Commands
 
-### `docsguard check <code_file> <doc_file>`
+### `docsguard check <doc_file> <code_files>...`
 
 Validates links between code and documentation. Exits with code 1 if errors are found (CI-friendly).
 
 ```bash
-docsguard check src/main.rs docs/api.md
-docsguard check src/main.rs docs/api.md --project-root .  # use baseline
+docsguard check docs/api.md src/main.rs
+docsguard check docs/api.md src/core/validator.rs src/parser/*.rs
+docsguard check docs/api.md src/main.rs --project-root .  # use baseline
 ```
 
 ### `docsguard scaffold <code_file> <doc_file>`
