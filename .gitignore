@@ -1,0 +1,21 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# DocsGuard
+.docsguard/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+docs/
+.claude
+CLAUDE.md

@@ -1,0 +1,33 @@
+[package]
+name = "docsguard"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.82"
+description = "Documentation Integrity Engine — eliminates code-doc drift through heuristic validation and interactive correction"
+license = "MIT"
+repository = "https://github.com/jandro/docsguard"
+homepage = "https://github.com/jandro/docsguard"
+keywords = ["documentation", "lint", "validation", "markdown", "cli"]
+categories = ["command-line-utilities", "development-tools"]
+readme = "README.md"
+
+[[bin]]
+name = "docsguard"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+dialoguer = "0.11"
+notify = { version = "7", features = ["macos_kqueue"] }
+notify-debouncer-mini = "0.5"
+pulldown-cmark = "0.12"
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+strsim = "0.11"
+tree-sitter = "0.24"
+tree-sitter-rust = "0.23"
+tree-sitter-typescript = "0.23"
+
+[dev-dependencies]
+tempfile = "3"
