@@ -8,8 +8,6 @@
 
 **Documentation Integrity Engine** — Eliminates code-documentation drift through heuristic validation, multi-format parsing, and interactive correction.
 
-[![CI](https://github.com/jandro/docsguard/actions/workflows/ci.yml/badge.svg)](https://github.com/jandro/docsguard/actions/workflows/ci.yml)
-
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
