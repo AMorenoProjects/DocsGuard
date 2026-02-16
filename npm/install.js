@@ -47,6 +47,36 @@ axios({
     fs.writeFileSync(outputPath, response.data);
     console.log('Download complete using axios');
 
+    // Download checksums
+    const checksumUrl = `https://github.com/AMorenoProjects/DocsGuard/releases/download/v${version}/SHA256SUMS`;
+    const checksumResponse = await axios({
+        method: 'get',
+        url: checksumUrl,
+        responseType: 'text'
+    });
+    const checksums = checksumResponse.data;
+
+    // Verify checksum
+    const fileBuffer = fs.readFileSync(outputPath);
+    const hashSum = crypto.createHash('sha256');
+    hashSum.update(fileBuffer);
+    const hex = hashSum.digest('hex');
+
+    const expectedChecksumEntry = checksums.split('\n').find(line => line.includes(`docsguard-${target}.${extension}`));
+    if (!expectedChecksumEntry) {
+        console.error('Checksum verification failed: No checksum found for this binary');
+        fs.unlinkSync(outputPath);
+        process.exit(1);
+    }
+
+    const expectedChecksum = expectedChecksumEntry.split(' ')[0];
+    if (hex !== expectedChecksum) {
+        console.error(`Checksum verification failed: Expected ${expectedChecksum}, got ${hex}`);
+        fs.unlinkSync(outputPath);
+        process.exit(1);
+    }
+    console.log('Checksum verified successfully');
+
     console.log('Extracting...');
     if (extension === 'tar.gz') {
         await tar.x({
