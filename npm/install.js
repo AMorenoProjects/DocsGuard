@@ -29,7 +29,7 @@ if (platform === 'linux' && arch === 'x64') {
     process.exit(1);
 }
 
-const url = `https://github.com/jandro/docsguard/releases/download/v${version}/docsguard-${target}.${extension}`;
+const url = `https://github.com/AMorenoProjects/DocsGuard/releases/download/v${version}/docsguard-${target}.${extension}`;
 const binDir = path.join(__dirname, 'bin');
 const outputPath = path.join(binDir, `docsguard-${target}.${extension}`);
 
