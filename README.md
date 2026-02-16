@@ -29,8 +29,14 @@ DocsGuard links functions directly to their documentation sections and validates
 
 ## Quick Start
 
-### Install from source
+### Installation
 
+**Via npm (Recommended):**
+```bash
+npm install -g docsguard
+```
+
+**From source (Rust):**
 ```bash
 cargo install --path .
 ```

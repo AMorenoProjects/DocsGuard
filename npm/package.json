@@ -1,0 +1,28 @@
+{
+  "name": "docsguard",
+  "version": "0.1.0",
+  "description": "Documentation Integrity Engine",
+  "bin": {
+    "docsguard": "run.js"
+  },
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/jandro/docsguard.git"
+  },
+  "keywords": [
+    "documentation",
+    "integrity",
+    "drift",
+    "validation"
+  ],
+  "author": "Jandro",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "tar": "^6.2.0",
+    "adm-zip": "^0.5.10"
+  }
+}

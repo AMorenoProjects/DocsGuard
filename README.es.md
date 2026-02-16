@@ -30,8 +30,14 @@ DocsGuard vincula funciones directamente con sus secciones de documentación y l
 
 ## Inicio Rápido
 
-### Instalar desde el código fuente
+### Instalación
 
+**Vía npm (Recomendado):**
+```bash
+npm install -g docsguard
+```
+
+**Desde el código fuente (Rust):**
 ```bash
 cargo install --path .
 ```
