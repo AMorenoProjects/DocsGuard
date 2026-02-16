@@ -1,6 +1,6 @@
 {
   "name": "docsguard",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Documentation Integrity Engine",
   "bin": {
     "docsguard": "run.js"
