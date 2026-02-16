@@ -18,3 +18,8 @@ Thumbs.db
 
 .claude
 CLAUDE.md
+
+# NPM
+npm/node_modules
+npm/bin
+npm/README.md
