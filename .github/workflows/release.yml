@@ -64,6 +64,11 @@ jobs:
           path: artifacts
           merge-multiple: true
 
+      - name: Generate Checksums
+        run: |
+          cd artifacts
+          shasum -a 256 * > SHA256SUMS
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

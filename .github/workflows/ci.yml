@@ -62,3 +62,11 @@ jobs:
       - name: DocsGuard checks itself
         run: |
           ./target/release/docsguard check docs/api.md src/core/validator.rs src/parser/code_parser.rs src/parser/doc_parser.rs
+
+  security_audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: rustsec/audit-check@v2.0.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
