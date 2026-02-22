@@ -74,7 +74,7 @@ impl Baseline {
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("No se pudo leer el baseline: {}", path.display()))?;
 
-        let baseline: Baseline = serde_yaml::from_str(&content)
+        let baseline: Baseline = serde_yml::from_str(&content)
             .with_context(|| format!("Error al parsear el baseline: {}", path.display()))?;
 
         if baseline.version != "1" {
@@ -97,7 +97,7 @@ impl Baseline {
         }
 
         let path = dir.join(BASELINE_FILE);
-        let content = serde_yaml::to_string(self).context("Error al serializar el baseline")?;
+        let content = serde_yml::to_string(self).context("Error al serializar el baseline")?;
 
         std::fs::write(&path, content)
             .with_context(|| format!("No se pudo escribir: {}", path.display()))?;
@@ -291,8 +291,8 @@ mod tests {
         )];
 
         let baseline = Baseline::from_results(&results);
-        let yaml = serde_yaml::to_string(&baseline).unwrap();
-        let loaded: Baseline = serde_yaml::from_str(&yaml).unwrap();
+        let yaml = serde_yml::to_string(&baseline).unwrap();
+        let loaded: Baseline = serde_yml::from_str(&yaml).unwrap();
 
         assert_eq!(loaded.entries.len(), 1);
         assert_eq!(loaded.entries[0].function_name.as_deref(), Some("test_fn"));

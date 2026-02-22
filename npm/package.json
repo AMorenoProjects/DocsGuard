@@ -1,6 +1,6 @@
 {
   "name": "docsguard",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Documentation Integrity Engine",
   "bin": {
     "docsguard": "run.js"
@@ -19,10 +19,5 @@
     "validation"
   ],
   "author": "Jandro",
-  "license": "MIT",
-  "dependencies": {
-    "adm-zip": "0.5.16",
-    "axios": "1.7.9",
-    "tar": "7.4.3"
-  }
+  "license": "MIT"
 }

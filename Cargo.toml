@@ -1,6 +1,6 @@
 [package]
 name = "docsguard"
-version = "0.1.4"
+version = "0.1.5"
 edition = "2021"
 rust-version = "1.82"
 description = "Documentation Integrity Engine — eliminates code-doc drift through heuristic validation and interactive correction"
@@ -23,7 +23,7 @@ notify = { version = "7", features = ["macos_kqueue"] }
 notify-debouncer-mini = "0.5"
 pulldown-cmark = "0.12"
 serde = { version = "1", features = ["derive"] }
-serde_yaml = "0.9"
+serde_yml = "0.0.12"
 strsim = "0.11"
 tree-sitter = "0.24"
 tree-sitter-rust = "0.23"
