@@ -153,7 +153,6 @@ fn prompt_user() -> Result<UserDecision> {
     })
 }
 
-/// Aplica los cambios aceptados al archivo de código.
 /// Aplica los cambios aceptados al archivo de código utilizando persistencia Atómica (Protección TOCTOU/Symlink).
 fn apply_changes(
     code_file: &Path,
@@ -166,13 +165,17 @@ fn apply_changes(
     let lines: Vec<&str> = source.lines().collect();
     let mut output_lines: Vec<String> = Vec::with_capacity(lines.len() + accepted.len());
 
-    let mut annotations: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
+    let mut annotations: std::collections::HashMap<usize, String> =
+        std::collections::HashMap::new();
     for candidate in accepted {
-        let entity = code_entities.get(candidate.entity_index).with_context(|| {
-            format!("Índice de entidad inválido: {}", candidate.entity_index)
-        })?;
+        let entity = code_entities
+            .get(candidate.entity_index)
+            .with_context(|| format!("Índice de entidad inválido: {}", candidate.entity_index))?;
         let line_0indexed = entity.line.saturating_sub(1);
-        annotations.insert(line_0indexed, format!("/// @docs: [{}]", candidate.section_id));
+        annotations.insert(
+            line_0indexed,
+            format!("/// @docs: [{}]", candidate.section_id),
+        );
     }
 
     for (i, line) in lines.iter().enumerate() {
@@ -190,15 +193,25 @@ fn apply_changes(
 
     // Estrategia de Mitigación Ciberseguridad: Escritura Atómica (Previene TOCTOU/Corruption/Symlink Attack)
     let tmp_path = code_file.with_extension("tmp.docsguardwrite");
-    
-    std::fs::write(&tmp_path, &result)
-        .with_context(|| format!("No se pudo escribir archivo temporal en: {}", tmp_path.display()))?;
+
+    std::fs::write(&tmp_path, &result).with_context(|| {
+        format!(
+            "No se pudo escribir archivo temporal en: {}",
+            tmp_path.display()
+        )
+    })?;
 
     // Rename es una operación POSIX atómica garantizada a nivel Kernel.
-    std::fs::rename(&tmp_path, code_file).map_err(|e| {
-        let _ = std::fs::remove_file(&tmp_path); // Defensivo: Limpieza fallida
-        e
-    }).with_context(|| format!("No se pudo aplicar el cambio de manera atómica a: {}", code_file.display()))?;
+    std::fs::rename(&tmp_path, code_file)
+        .inspect_err(|_e| {
+            let _ = std::fs::remove_file(&tmp_path); // Defensivo: Limpieza fallida
+        })
+        .with_context(|| {
+            format!(
+                "No se pudo aplicar el cambio de manera atómica a: {}",
+                code_file.display()
+            )
+        })?;
 
     Ok(())
 }
