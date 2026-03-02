@@ -79,12 +79,24 @@ async function downloadAndExtract() {
         console.log('Checksum verified successfully');
 
         // 4. Extract
-        console.log('Extracting using native commands...');
+        console.log('Extracting using native commands securely...');
+        const { spawnSync } = require('child_process');
+
         if (extension === 'tar.gz') {
-            execSync(`tar -xzf "${outputPath}" -C "${binDir}"`);
+            const result = spawnSync('tar', ['-xzf', outputPath, '-C', binDir], { stdio: 'inherit' });
+            if (result.error || result.status !== 0) throw new Error('Failed to extract tar.gz archive');
         } else if (extension === 'zip') {
-             // Use PowerShell to unfurl zip natively on modern Windows
-             execSync(`powershell -command "Expand-Archive -Path '${outputPath}' -DestinationPath '${binDir}' -Force"`);
+            // Mitigación PowerShell Parameter Injection
+            const result = spawnSync('powershell', [
+                '-NoProfile',
+                '-Command',
+                // Bloque parametrizado sin interpolación en el SCRIPT
+                '& { param($p, $d); Expand-Archive -Path $p -DestinationPath $d -Force }',
+                '-p', outputPath,
+                '-d', binDir
+            ], { stdio: 'inherit' });
+
+            if (result.error || result.status !== 0) throw new Error('Failed to extract zip archive');
         }
 
         // 5. Cleanup archive

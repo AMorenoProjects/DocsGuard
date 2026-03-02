@@ -154,7 +154,7 @@ fn prompt_user() -> Result<UserDecision> {
 }
 
 /// Aplica los cambios aceptados al archivo de código.
-/// Inserta `/// @docs: [id]` antes de cada función vinculada.
+/// Aplica los cambios aceptados al archivo de código utilizando persistencia Atómica (Protección TOCTOU/Symlink).
 fn apply_changes(
     code_file: &Path,
     code_entities: &[CodeEntity],
@@ -166,27 +166,17 @@ fn apply_changes(
     let lines: Vec<&str> = source.lines().collect();
     let mut output_lines: Vec<String> = Vec::with_capacity(lines.len() + accepted.len());
 
-    // Construir mapa de línea → anotación a insertar (0-indexed)
-    let mut annotations: std::collections::HashMap<usize, String> =
-        std::collections::HashMap::new();
+    let mut annotations: std::collections::HashMap<usize, String> = std::collections::HashMap::new();
     for candidate in accepted {
         let entity = code_entities.get(candidate.entity_index).with_context(|| {
-            format!(
-                "Índice de entidad inválido: {} (total: {})",
-                candidate.entity_index,
-                code_entities.len()
-            )
+            format!("Índice de entidad inválido: {}", candidate.entity_index)
         })?;
         let line_0indexed = entity.line.saturating_sub(1);
-        annotations.insert(
-            line_0indexed,
-            format!("/// @docs: [{}]", candidate.section_id),
-        );
+        annotations.insert(line_0indexed, format!("/// @docs: [{}]", candidate.section_id));
     }
 
     for (i, line) in lines.iter().enumerate() {
         if let Some(annotation) = annotations.get(&i) {
-            // Detectar indentación de la línea de la función
             let indent: String = line.chars().take_while(|c| c.is_whitespace()).collect();
             output_lines.push(format!("{}{}", indent, annotation));
         }
@@ -194,13 +184,21 @@ fn apply_changes(
     }
 
     let mut result = output_lines.join("\n");
-    // Preservar newline final si el original lo tenía
     if source.ends_with('\n') {
         result.push('\n');
     }
 
-    std::fs::write(code_file, result)
-        .with_context(|| format!("No se pudo escribir: {}", code_file.display()))?;
+    // Estrategia de Mitigación Ciberseguridad: Escritura Atómica (Previene TOCTOU/Corruption/Symlink Attack)
+    let tmp_path = code_file.with_extension("tmp.docsguardwrite");
+    
+    std::fs::write(&tmp_path, &result)
+        .with_context(|| format!("No se pudo escribir archivo temporal en: {}", tmp_path.display()))?;
+
+    // Rename es una operación POSIX atómica garantizada a nivel Kernel.
+    std::fs::rename(&tmp_path, code_file).map_err(|e| {
+        let _ = std::fs::remove_file(&tmp_path); // Defensivo: Limpieza fallida
+        e
+    }).with_context(|| format!("No se pudo aplicar el cambio de manera atómica a: {}", code_file.display()))?;
 
     Ok(())
 }

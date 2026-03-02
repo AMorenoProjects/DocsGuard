@@ -1,6 +1,6 @@
 {
   "name": "docsguard",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Documentation Integrity Engine",
   "bin": {
     "docsguard": "run.js"
@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/AMorenoProjects/DocsGuard.git"
+    "url": "git+https://github.com/AMorenoProjects/DocsGuard.git"
   },
   "keywords": [
     "documentation",
