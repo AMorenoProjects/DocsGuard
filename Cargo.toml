@@ -1,6 +1,6 @@
 [package]
 name = "docsguard"
-version = "0.1.6"
+version = "0.2.0"
 edition = "2021"
 rust-version = "1.82"
 description = "Documentation Integrity Engine — eliminates code-doc drift through heuristic validation and interactive correction"
@@ -26,8 +26,13 @@ serde = { version = "1", features = ["derive"] }
 serde_yml = "0.0.12"
 strsim = "0.11"
 tree-sitter = "0.24"
+tree-sitter-c-sharp = "0.23"
+tree-sitter-go = "0.23"
+tree-sitter-java = "0.23"
+tree-sitter-python = "0.23"
 tree-sitter-rust = "0.23"
 tree-sitter-typescript = "0.23"
 
 [dev-dependencies]
 tempfile = "3"
+

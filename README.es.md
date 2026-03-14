@@ -9,6 +9,7 @@
 **Motor de Integridad de Documentación** — Elimina la deriva código-documentación mediante validación heurística, parsing multiformato y corrección interactiva.
 
 [![CI](https://github.com/jandro/docsguard/actions/workflows/ci.yml/badge.svg)](https://github.com/jandro/docsguard/actions/workflows/ci.yml)
+[![Version](https://img.shields.io/badge/version-0.2.0-brightgreen.svg)](Cargo.toml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -120,6 +121,47 @@ Vuelca los errores actuales a `.docsguard/baseline.yaml` para que el CI pase inm
 docsguard baseline src/main.rs docs/api.md --project-root .
 ```
 
+### `docsguard coverage <code_files>...`
+
+Analiza qué porcentaje de las funciones públicas/exportadas tienen una anotación `@docs` vinculada a su documentación. Sale con código 1 si la cobertura cae por debajo del umbral mínimo (por defecto: 80%).
+
+```bash
+docsguard coverage src/main.rs                         # un solo archivo
+docsguard coverage src/**/*.rs                         # múltiples archivos
+docsguard coverage src/main.rs --min-coverage 90       # umbral personalizado
+```
+
+**Ejemplo de salida:**
+
+```
+DocsGuard — Document Coverage Report
+
+────────────────────────────────────────────────────────────
+  src/core/validator.rs     ████████████████████████  100%  (4/4)
+  src/core/heuristic.rs     ████████████░░░░░░░░░░░░   50%  (1/2)
+  src/parser/code_parser.rs ████████████████░░░░░░░░   67%  (2/3)
+  src/main.rs               ░░░░░░░░░░░░░░░░░░░░░░░░    0%  (0/1)
+────────────────────────────────────────────────────────────
+  TOTAL                     ██████████████░░░░░░░░░░   70%  (7/10)
+
+  ✗ 70% — Por debajo del umbral mínimo (80%).
+    Añade anotaciones /// @docs: [id] a las funciones públicas sin documentar.
+```
+
+El color de la barra refleja el nivel de cobertura:
+- **Verde** (`█`) — ≥ 80%
+- **Amarillo** (`█`) — ≥ 50%
+- **Rojo** (`█`) — < 50%
+
+Integra en CI para hacer cumplir los estándares de documentación:
+
+```yaml
+- name: DocsGuard Coverage
+  run: |
+    cargo install --path .
+    docsguard coverage src/**/*.rs --min-coverage 80
+```
+
 ## Lenguajes Soportados
 
 | Lenguaje   | Extensiones      | Parser      |
@@ -127,6 +169,10 @@ docsguard baseline src/main.rs docs/api.md --project-root .
 | TypeScript | `.ts`, `.tsx`    | tree-sitter |
 | JavaScript | `.js`, `.jsx`    | tree-sitter |
 | Rust       | `.rs`            | tree-sitter |
+| Python     | `.py`            | tree-sitter |
+| Go         | `.go`            | tree-sitter |
+| Java       | `.java`          | tree-sitter |
+| C#         | `.cs`            | tree-sitter |
 
 ## Formatos de Documentación
 
@@ -150,6 +196,11 @@ DocsGuard parsea tres formatos de documentación de argumentos automáticamente:
 `name` (`string`): El nombre del usuario
 `email` (`string`): El email del usuario
 ```
+
+## Formatos de Anotaciones por Lenguaje
+
+- **TypeScript/JavaScript/Rust/Go/Java/C#:** `/// @docs: [id]` o `// @docs: [id]`
+- **Python:** `# @docs: [id]`
 
 ## Docker
 

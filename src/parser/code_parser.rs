@@ -1,6 +1,6 @@
 //! Parser de código fuente usando tree-sitter.
 //!
-//! Soporta múltiples lenguajes (TypeScript, Rust) y provee utilidades
+//! Soporta múltiples lenguajes (TypeScript, Rust, Python, Go, Java, C#) y provee utilidades
 //! compartidas para la extracción de anotaciones `@docs`.
 
 use anyhow::{bail, Context, Result};
@@ -14,6 +14,10 @@ use crate::parser::lang;
 pub enum Language {
     TypeScript,
     Rust,
+    Python,
+    Go,
+    Java,
+    CSharp,
 }
 
 impl Language {
@@ -23,8 +27,12 @@ impl Language {
             Some("ts" | "tsx") => Ok(Language::TypeScript),
             Some("js" | "jsx") => Ok(Language::TypeScript), // tree-sitter-typescript parsea JS
             Some("rs") => Ok(Language::Rust),
+            Some("py") => Ok(Language::Python),
+            Some("go") => Ok(Language::Go),
+            Some("java") => Ok(Language::Java),
+            Some("cs") => Ok(Language::CSharp),
             Some(ext) => bail!(
-                "Extensión '.{}' no soportada.\n    -> Lenguajes soportados: TypeScript (.ts/.tsx), Rust (.rs)",
+                "Extensión '.{}' no soportada.\n    -> Lenguajes soportados: TypeScript (.ts/.tsx), Rust (.rs), Python (.py), Go (.go), Java (.java), C# (.cs)",
                 ext
             ),
             None => bail!(
@@ -59,6 +67,10 @@ pub fn parse_code_file(file_path: &Path) -> Result<Vec<CodeEntity>> {
     match language {
         Language::TypeScript => lang::typescript::parse_typescript_source(&source, file_path),
         Language::Rust => lang::rust::parse_rust_source(&source, file_path),
+        Language::Python => lang::python::parse_python_source(&source, file_path),
+        Language::Go => lang::go::parse_go_source(&source, file_path),
+        Language::Java => lang::java::parse_java_source(&source, file_path),
+        Language::CSharp => lang::c_sharp::parse_c_sharp_source(&source, file_path),
     }
 }
 

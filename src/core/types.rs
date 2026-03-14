@@ -31,6 +31,8 @@ pub struct CodeEntity {
     pub file_path: PathBuf,
     /// Línea donde se declaró la función.
     pub line: usize,
+    /// Indica si la función es pública/exportada (relevante para coverage).
+    pub is_public: bool,
 }
 
 /// Sección de documentación extraída por pulldown-cmark.

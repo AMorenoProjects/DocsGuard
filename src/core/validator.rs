@@ -241,6 +241,7 @@ mod tests {
             doc_id: doc_id.map(String::from),
             file_path: PathBuf::from("test.ts"),
             line: 1,
+            is_public: true,
         }
     }
 
@@ -252,6 +253,7 @@ mod tests {
             doc_id: Some(doc_id.into()),
             file_path: PathBuf::from("test.ts"),
             line: 1,
+            is_public: true,
         }
     }
 

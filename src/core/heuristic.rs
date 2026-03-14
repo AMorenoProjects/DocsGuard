@@ -130,14 +130,15 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
 
-    fn entity(name: &str) -> CodeEntity {
+    fn get_test_entity(name: &str, file: &str, line: usize) -> CodeEntity {
         CodeEntity {
-            name: name.into(),
+            name: name.to_string(),
             args: vec![],
             return_type: None,
             doc_id: None,
-            file_path: PathBuf::from("test.rs"),
-            line: 1,
+            file_path: PathBuf::from(file),
+            line,
+            is_public: true,
         }
     }
 
@@ -171,7 +172,10 @@ mod tests {
 
     #[test]
     fn find_candidates_returns_matches() {
-        let entities = vec![entity("login"), entity("create_user")];
+        let entities = vec![
+            get_test_entity("login", "test.rs", 1),
+            get_test_entity("create_user", "test.rs", 1),
+        ];
         let sections = vec![
             section("auth-login", "Login"),
             section("user-create", "Create User"),

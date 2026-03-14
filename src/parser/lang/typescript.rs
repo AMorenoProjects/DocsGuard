@@ -39,14 +39,17 @@ fn collect_functions(
     for child in node.children(&mut cursor) {
         match child.kind() {
             "function_declaration" | "export_statement" => {
-                let func_node = if child.kind() == "export_statement" {
+                let is_exported = child.kind() == "export_statement";
+                let func_node = if is_exported {
                     find_function_in_export(&child)
                 } else {
                     Some(child)
                 };
 
                 if let Some(func_node) = func_node {
-                    if let Some(entity) = extract_function(&func_node, source, file_path, node)? {
+                    if let Some(entity) =
+                        extract_function(&func_node, source, file_path, node, is_exported)?
+                    {
                         entities.push(entity);
                     }
                 }
@@ -75,6 +78,7 @@ fn extract_function(
     source: &[u8],
     file_path: &Path,
     parent_node: &tree_sitter::Node,
+    is_public: bool,
 ) -> Result<Option<CodeEntity>> {
     let name = func_node
         .child_by_field_name("name")
@@ -98,6 +102,7 @@ fn extract_function(
         doc_id,
         file_path: file_path.to_path_buf(),
         line,
+        is_public,
     }))
 }
 

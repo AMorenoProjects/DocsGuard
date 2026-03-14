@@ -5,6 +5,7 @@
 
 mod baseline;
 mod core;
+mod coverage;
 mod interactive;
 mod parser;
 mod watch;
@@ -74,6 +75,16 @@ enum Commands {
         #[arg(long, default_value = ".")]
         project_root: PathBuf,
     },
+
+    /// Muestra el porcentaje de funciones públicas con anotación @docs.
+    Coverage {
+        /// Archivos de código fuente a analizar.
+        #[arg(required = true)]
+        code_files: Vec<PathBuf>,
+        /// Cobertura mínima requerida (0-100). Sale con código 1 si no se alcanza.
+        #[arg(long, default_value_t = 80)]
+        min_coverage: u8,
+    },
 }
 
 fn main() -> Result<()> {
@@ -103,6 +114,11 @@ fn main() -> Result<()> {
             doc_file,
             project_root,
         } => baseline::run_baseline(&code_file, &doc_file, &project_root),
+
+        Commands::Coverage {
+            code_files,
+            min_coverage,
+        } => coverage::run_coverage(&code_files, min_coverage),
     }
 }
 

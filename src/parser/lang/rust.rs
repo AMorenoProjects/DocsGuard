@@ -87,6 +87,12 @@ fn extract_function(
 
     let line = func_node.start_position().row + 1;
 
+    // Una función es pública si tiene un nodo `visibility_modifier` (pub, pub(crate), etc.)
+    let mut vis_cursor = func_node.walk();
+    let is_public = func_node
+        .children(&mut vis_cursor)
+        .any(|child| child.kind() == "visibility_modifier");
+
     Ok(Some(CodeEntity {
         name,
         args,
@@ -94,6 +100,7 @@ fn extract_function(
         doc_id,
         file_path: file_path.to_path_buf(),
         line,
+        is_public,
     }))
 }
 
