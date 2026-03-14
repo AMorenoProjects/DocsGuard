@@ -15,6 +15,8 @@ use crate::core::types::{Severity, ValidationResult};
 const DOCSGUARD_DIR: &str = ".docsguard";
 /// Nombre del archivo de baseline.
 const BASELINE_FILE: &str = "baseline.yaml";
+/// Tamaño máximo del baseline para prevenir DoS (VUL-04) — consistente con parsers.
+const MAX_BASELINE_SIZE: u64 = 10 * 1024 * 1024;
 
 /// Entrada individual en el baseline.
 /// Identifica un error conocido que debe ignorarse.
@@ -82,6 +84,19 @@ impl Baseline {
             return Ok(None);
         }
 
+        // VUL-04: limitar tamaño antes de deserializar para prevenir DoS via YAML grande.
+        let file_size = std::fs::metadata(&path)
+            .with_context(|| format!("No se pudo leer metadata: {}", path.display()))?
+            .len();
+        if file_size > MAX_BASELINE_SIZE {
+            anyhow::bail!(
+                "baseline.yaml demasiado grande ({:.1} MB, máximo: {} MB). Regenera el baseline con `docsguard baseline`.\n    -> Archivo: {}",
+                file_size as f64 / (1024.0 * 1024.0),
+                MAX_BASELINE_SIZE / (1024 * 1024),
+                path.display()
+            );
+        }
+
         let content = std::fs::read_to_string(&path)
             .with_context(|| format!("No se pudo leer el baseline: {}", path.display()))?;
 
@@ -99,7 +114,7 @@ impl Baseline {
         Ok(Some(baseline))
     }
 
-    /// Guarda el baseline al disco.
+    /// Guarda el baseline al disco usando escritura atómica (VUL-02).
     pub fn save(&self, project_root: &Path) -> Result<PathBuf> {
         let dir = project_root.join(DOCSGUARD_DIR);
         if !dir.exists() {
@@ -110,8 +125,9 @@ impl Baseline {
         let path = dir.join(BASELINE_FILE);
         let content = serde_yml::to_string(self).context("Error al serializar el baseline")?;
 
-        std::fs::write(&path, content)
-            .with_context(|| format!("No se pudo escribir: {}", path.display()))?;
+        // VUL-02: escritura atómica — consistente con apply_changes en interactive.
+        // Previene corrupción del baseline si el proceso muere durante la escritura.
+        crate::parser::code_parser::atomic_write(&path, content.as_bytes())?;
 
         Ok(path)
     }

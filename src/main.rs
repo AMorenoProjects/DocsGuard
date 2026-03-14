@@ -16,7 +16,8 @@ use std::path::{Path, PathBuf};
 
 use crate::core::types::Severity;
 use crate::core::validator;
-use crate::parser::{code_parser, doc_parser};
+use crate::parser::code_parser::{self, safe_display};
+use crate::parser::doc_parser;
 
 #[derive(Parser)]
 #[command(
@@ -130,12 +131,12 @@ fn run_check(code_files: &[PathBuf], doc_file: &Path, project_root: &Path) -> Re
     code_parser::require_file_exists(doc_file, "documentación")?;
 
     println!("DocsGuard — Verificando enlaces código ↔ documentación\n");
-    println!("  Docs: {}", doc_file.display());
+    println!("  Docs: {}", safe_display(doc_file));
     println!("  Código: {} archivos", code_files.len());
 
     let mut all_code_entities = Vec::new();
     for code_file in code_files {
-        println!("    -> {}", code_file.display());
+        println!("    -> {}", safe_display(code_file));
         let mut entities = code_parser::parse_code_file(code_file)
             .context(format!("Error al parsear {}", code_file.display()))?;
         all_code_entities.append(&mut entities);

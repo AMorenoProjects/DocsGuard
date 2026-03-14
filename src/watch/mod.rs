@@ -11,7 +11,8 @@ use std::time::{Duration, Instant};
 
 use crate::core::types::Severity;
 use crate::core::validator;
-use crate::parser::{code_parser, doc_parser};
+use crate::parser::code_parser::{self, safe_display};
+use crate::parser::doc_parser;
 
 /// Ejecuta el modo watch: observa cambios y re-valida automáticamente.
 pub fn run_watch(code_file: &Path, doc_file: &Path) -> Result<()> {
@@ -52,13 +53,16 @@ pub fn run_watch(code_file: &Path, doc_file: &Path) -> Result<()> {
 
                 if relevant {
                     if !code_file.exists() {
-                        eprintln!("  [!] Archivo de código eliminado: {}", code_file.display());
+                        eprintln!(
+                            "  [!] Archivo de código eliminado: {}",
+                            safe_display(&code_file)
+                        );
                         continue;
                     }
                     if !doc_file.exists() {
                         eprintln!(
                             "  [!] Archivo de documentación eliminado: {}",
-                            doc_file.display()
+                            safe_display(&doc_file)
                         );
                         continue;
                     }
@@ -87,8 +91,8 @@ fn clear_and_validate(code_file: &Path, doc_file: &Path) -> Result<()> {
     let start = Instant::now();
 
     println!("DocsGuard Watch — Validación en tiempo real\n");
-    println!("  Código: {}", code_file.display());
-    println!("  Docs:   {}\n", doc_file.display());
+    println!("  Código: {}", safe_display(code_file));
+    println!("  Docs:   {}\n", safe_display(doc_file));
 
     let code_entities = match code_parser::parse_code_file(code_file) {
         Ok(e) => e,

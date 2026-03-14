@@ -82,7 +82,13 @@ pub fn require_file_exists(path: &Path, kind: &str) -> Result<()> {
 /// @docs: [parse-code-file]
 /// Parsea un archivo de código auto-detectando el lenguaje por extensión.
 pub fn parse_code_file(file_path: &Path) -> Result<Vec<CodeEntity>> {
-    let metadata = std::fs::metadata(file_path)
+    use std::io::Read;
+    // VUL-03: abrir una sola vez — el check de tamaño y la lectura comparten el mismo fd,
+    // eliminando la ventana TOCTOU entre metadata() y read_to_string().
+    let mut file = std::fs::File::open(file_path)
+        .with_context(|| format!("No se pudo abrir: {}", file_path.display()))?;
+    let metadata = file
+        .metadata()
         .with_context(|| format!("No se pudo leer metadata: {}", file_path.display()))?;
     if metadata.len() > MAX_FILE_SIZE {
         anyhow::bail!(
@@ -92,7 +98,8 @@ pub fn parse_code_file(file_path: &Path) -> Result<Vec<CodeEntity>> {
             file_path.display()
         );
     }
-    let source = std::fs::read_to_string(file_path)
+    let mut source = String::with_capacity(metadata.len() as usize);
+    file.read_to_string(&mut source)
         .with_context(|| format!("No se pudo leer el archivo: {}", file_path.display()))?;
 
     let language = Language::from_extension(file_path)?;
@@ -160,6 +167,44 @@ pub fn find_docs_annotation(
     None
 }
 
+/// Valida que un ID de sección solo contiene caracteres seguros.
+///
+/// Solo se permiten: `[a-zA-Z0-9_-]`. Previene inyección de código (VUL-01):
+/// un ID con `\n` en el interior podría inyectar líneas arbitrarias al escribir
+/// anotaciones `@docs` en archivos de código fuente.
+pub(crate) fn is_valid_id(id: &str) -> bool {
+    !id.is_empty()
+        && id
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_')
+}
+
+/// Escribe `content` en `path` de forma atómica usando temp file + POSIX rename.
+///
+/// Función compartida usada por `apply_changes` (interactive) y `Baseline::save`.
+/// Previene TOCTOU, corrupción parcial y symlink attacks (VUL-02).
+pub(crate) fn atomic_write(path: &Path, content: &[u8]) -> Result<()> {
+    let tmp_path = path.with_extension("tmp.docsguardwrite");
+    std::fs::write(&tmp_path, content)
+        .with_context(|| format!("No se pudo escribir temporal: {}", tmp_path.display()))?;
+    std::fs::rename(&tmp_path, path)
+        .inspect_err(|_| {
+            let _ = std::fs::remove_file(&tmp_path);
+        })
+        .with_context(|| format!("No se pudo renombrar a: {}", path.display()))
+}
+
+/// Devuelve el path como string con secuencias ANSI escapadas.
+///
+/// Previene terminal injection (VUL-05): paths con `\x1b[...` podrían manipular
+/// la apariencia del terminal y engañar al usuario.
+pub(crate) fn safe_display(path: &Path) -> String {
+    path.display()
+        .to_string()
+        .replace('\x1b', "\\x1b")
+        .replace('\r', "\\r")
+}
+
 /// Extrae el ID de una anotación `/// @docs: [id]`, `// @docs: [id]`, o `# @docs: [id]`.
 pub fn extract_docs_id_from_comment(comment: &str) -> Option<String> {
     let trimmed = comment.trim();
@@ -183,7 +228,8 @@ pub fn extract_docs_id_from_comment(comment: &str) -> Option<String> {
             id_part
         };
         let id = id.trim();
-        if !id.is_empty() {
+        // VUL-01: rechazar IDs con caracteres fuera de [a-zA-Z0-9_-]
+        if is_valid_id(id) {
             return Some(id.to_string());
         }
     }
@@ -243,5 +289,38 @@ mod tests {
     #[test]
     fn language_detection_unsupported() {
         assert!(Language::from_extension(&PathBuf::from("style.css")).is_err());
+    }
+
+    // VUL-01: inyección de código via section_id con newlines
+    #[test]
+    fn extract_docs_id_rejects_newline_injection() {
+        // Un doc malicioso podría intentar: @docs: [legit-id\nfn evil() {}]
+        assert_eq!(
+            extract_docs_id_from_comment("/// @docs: [legit-id\nfn evil() {}]"),
+            None
+        );
+    }
+
+    #[test]
+    fn extract_docs_id_rejects_spaces() {
+        assert_eq!(
+            extract_docs_id_from_comment("/// @docs: [id with spaces]"),
+            None
+        );
+    }
+
+    #[test]
+    fn is_valid_id_allows_alphanumeric_and_separators() {
+        assert!(is_valid_id("auth-login"));
+        assert!(is_valid_id("user_create"));
+        assert!(is_valid_id("parseCodeFile123"));
+    }
+
+    #[test]
+    fn is_valid_id_rejects_injection_chars() {
+        assert!(!is_valid_id("id\ninjected"));
+        assert!(!is_valid_id("id with space"));
+        assert!(!is_valid_id("id;evil()"));
+        assert!(!is_valid_id(""));
     }
 }

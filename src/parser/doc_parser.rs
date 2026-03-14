@@ -8,6 +8,8 @@ use anyhow::{Context, Result};
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use std::path::Path;
 
+use super::code_parser::{is_valid_id, safe_display};
+
 use crate::core::types::{Arg, DocSection};
 
 /// Tamaño máximo de archivo para prevenir DoS (10 MB).
@@ -16,18 +18,24 @@ const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 /// @docs: [parse-markdown-file]
 /// Parsea un archivo Markdown y extrae todas las secciones con anotación `@docs-id`.
 pub fn parse_markdown_file(file_path: &Path) -> Result<Vec<DocSection>> {
-    let metadata = std::fs::metadata(file_path)
-        .with_context(|| format!("No se pudo leer metadata: {}", file_path.display()))?;
+    use std::io::Read;
+    // VUL-03: abrir una sola vez — elimina la ventana TOCTOU entre metadata() y la lectura.
+    let mut file = std::fs::File::open(file_path)
+        .with_context(|| format!("No se pudo abrir: {}", safe_display(file_path)))?;
+    let metadata = file
+        .metadata()
+        .with_context(|| format!("No se pudo leer metadata: {}", safe_display(file_path)))?;
     if metadata.len() > MAX_FILE_SIZE {
         anyhow::bail!(
             "Archivo demasiado grande ({:.1} MB, máximo: {} MB): {}",
             metadata.len() as f64 / (1024.0 * 1024.0),
             MAX_FILE_SIZE / (1024 * 1024),
-            file_path.display()
+            safe_display(file_path)
         );
     }
-    let source = std::fs::read_to_string(file_path)
-        .with_context(|| format!("No se pudo leer el archivo: {}", file_path.display()))?;
+    let mut source = String::with_capacity(metadata.len() as usize);
+    file.read_to_string(&mut source)
+        .with_context(|| format!("No se pudo leer el archivo: {}", safe_display(file_path)))?;
 
     parse_markdown_source(&source, file_path)
 }
@@ -214,15 +222,17 @@ pub fn parse_markdown_source(source: &str, file_path: &Path) -> Result<Vec<DocSe
 }
 
 /// Extrae el ID de un comentario HTML `<!-- @docs-id: xxx -->`.
+///
+/// VUL-01: solo acepta IDs con caracteres `[a-zA-Z0-9_-]`. Cualquier ID con
+/// newlines, espacios o caracteres especiales se descarta para prevenir que un
+/// doc malicioso inyecte código en archivos fuente vía `scaffold`.
 fn extract_docs_id_from_html(html: &str) -> Option<String> {
     let content = html.strip_prefix("<!--")?.strip_suffix("-->")?;
-    let content = content.trim();
-    let after_prefix = content.strip_prefix("@docs-id:")?;
-    let id = after_prefix.trim();
-    if id.is_empty() {
-        None
-    } else {
+    let id = content.trim().strip_prefix("@docs-id:")?.trim();
+    if is_valid_id(id) {
         Some(id.to_string())
+    } else {
+        None
     }
 }
 
@@ -439,6 +449,25 @@ mod tests {
     #[test]
     fn extract_id_not_docs() {
         assert_eq!(extract_docs_id_from_html("<!-- just a comment -->"), None);
+    }
+
+    // VUL-01: un doc malicioso no debe poder inyectar código via newlines en el ID
+    #[test]
+    fn extract_id_rejects_newline_injection() {
+        assert_eq!(
+            extract_docs_id_from_html(
+                "<!-- @docs-id: legit-id\n#[no_mangle] pub extern \"C\" fn evil() {} //[ -->"
+            ),
+            None
+        );
+    }
+
+    #[test]
+    fn extract_id_rejects_spaces_in_id() {
+        assert_eq!(
+            extract_docs_id_from_html("<!-- @docs-id: id with spaces -->"),
+            None
+        );
     }
 
     #[test]

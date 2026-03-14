@@ -182,27 +182,9 @@ fn apply_changes(
         result.push('\n');
     }
 
-    // Estrategia de Mitigación Ciberseguridad: Escritura Atómica (Previene TOCTOU/Corruption/Symlink Attack)
-    let tmp_path = code_file.with_extension("tmp.docsguardwrite");
-
-    std::fs::write(&tmp_path, &result).with_context(|| {
-        format!(
-            "No se pudo escribir archivo temporal en: {}",
-            tmp_path.display()
-        )
-    })?;
-
-    // Rename es una operación POSIX atómica garantizada a nivel Kernel.
-    std::fs::rename(&tmp_path, code_file)
-        .inspect_err(|_e| {
-            let _ = std::fs::remove_file(&tmp_path); // Defensivo: Limpieza fallida
-        })
-        .with_context(|| {
-            format!(
-                "No se pudo aplicar el cambio de manera atómica a: {}",
-                code_file.display()
-            )
-        })?;
+    // Escritura atómica via utilidad compartida (code_parser::atomic_write).
+    // Previene TOCTOU, corrupción parcial y symlink attacks.
+    crate::parser::code_parser::atomic_write(code_file, result.as_bytes())?;
 
     Ok(())
 }
