@@ -1,30 +1,22 @@
 //! Parser de TypeScript usando tree-sitter.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::Path;
-use tree_sitter::Parser;
 
 use crate::core::types::{Arg, CodeEntity};
+use crate::parser::code_parser;
 use crate::parser::code_parser::find_docs_annotation;
 
 /// Parsea código TypeScript desde un string.
 pub fn parse_typescript_source(source: &str, file_path: &Path) -> Result<Vec<CodeEntity>> {
-    let mut parser = Parser::new();
-    let language = tree_sitter_typescript::LANGUAGE_TYPESCRIPT;
-    parser
-        .set_language(&language.into())
-        .context("Error al configurar tree-sitter con TypeScript")?;
-
-    let tree = parser
-        .parse(source, None)
-        .context("Error al parsear el archivo TypeScript")?;
-
-    let root_node = tree.root_node();
-    let source_bytes = source.as_bytes();
+    // Refactorizado: uso de create_tree para eliminar boilerplate duplicado entre parsers
+    let tree = code_parser::create_tree(
+        source,
+        tree_sitter_typescript::LANGUAGE_TYPESCRIPT.into(),
+        "TypeScript",
+    )?;
     let mut entities = Vec::new();
-
-    collect_functions(&root_node, source_bytes, file_path, &mut entities)?;
-
+    collect_functions(&tree.root_node(), source.as_bytes(), file_path, &mut entities)?;
     Ok(entities)
 }
 

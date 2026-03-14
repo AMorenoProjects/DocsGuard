@@ -32,6 +32,21 @@ pub struct BaselineEntry {
     pub message_fingerprint: String,
 }
 
+impl BaselineEntry {
+    /// Construye una entrada desde un resultado de validación.
+    ///
+    /// Refactorizado: función DRY compartida por `Baseline::from_results`
+    /// y `filter_baseline`, que antes duplicaban esta misma struct literal.
+    pub fn from_result(r: &ValidationResult) -> Self {
+        BaselineEntry {
+            severity: r.severity.to_string(),
+            function_name: r.function_name.clone(),
+            doc_id: r.doc_id.clone(),
+            message_fingerprint: make_fingerprint(&r.message),
+        }
+    }
+}
+
 /// Contenido del archivo baseline.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Baseline {
@@ -46,15 +61,11 @@ pub struct Baseline {
 impl Baseline {
     /// Crea un baseline nuevo desde una lista de resultados de validación.
     pub fn from_results(results: &[ValidationResult]) -> Self {
+        // Refactorizado: usa BaselineEntry::from_result en lugar de duplicar la struct literal
         let entries: Vec<BaselineEntry> = results
             .iter()
             .filter(|r| r.severity != Severity::Info)
-            .map(|r| BaselineEntry {
-                severity: r.severity.to_string(),
-                function_name: r.function_name.clone(),
-                doc_id: r.doc_id.clone(),
-                message_fingerprint: make_fingerprint(&r.message),
-            })
+            .map(BaselineEntry::from_result)
             .collect();
 
         Baseline {
@@ -127,12 +138,8 @@ pub fn filter_baseline(
                 return true; // Info siempre pasa
             }
 
-            let entry = BaselineEntry {
-                severity: r.severity.to_string(),
-                function_name: r.function_name.clone(),
-                doc_id: r.doc_id.clone(),
-                message_fingerprint: make_fingerprint(&r.message),
-            };
+            // Refactorizado: usa BaselineEntry::from_result en lugar de duplicar la struct literal
+            let entry = BaselineEntry::from_result(r);
 
             if known.contains(&entry) {
                 filtered += 1;
@@ -174,15 +181,9 @@ fn chrono_now() -> String {
 
 /// Ejecuta el comando baseline: vuelca errores actuales al archivo.
 pub fn run_baseline(code_file: &Path, doc_file: &Path, project_root: &Path) -> Result<()> {
-    if !code_file.exists() {
-        anyhow::bail!("Archivo de código no encontrado: {}", code_file.display());
-    }
-    if !doc_file.exists() {
-        anyhow::bail!(
-            "Archivo de documentación no encontrado: {}",
-            doc_file.display()
-        );
-    }
+    // Refactorizado: usa require_file_exists para eliminar comprobaciones duplicadas entre comandos
+    crate::parser::code_parser::require_file_exists(code_file, "código")?;
+    crate::parser::code_parser::require_file_exists(doc_file, "documentación")?;
 
     println!("DocsGuard Baseline — Volcando errores existentes\n");
 

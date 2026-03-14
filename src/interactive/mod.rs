@@ -23,18 +23,9 @@ enum UserDecision {
 /// Parsea código y docs, encuentra candidatos heurísticos, y presenta
 /// cada sugerencia al usuario para confirmación.
 pub fn run_scaffold(code_file: &Path, doc_file: &Path, dry_run: bool, force: bool) -> Result<()> {
-    if !code_file.exists() {
-        anyhow::bail!(
-            "Archivo de código no encontrado: {}\n    -> Verifica que la ruta sea correcta.",
-            code_file.display()
-        );
-    }
-    if !doc_file.exists() {
-        anyhow::bail!(
-            "Archivo de documentación no encontrado: {}\n    -> Verifica que la ruta sea correcta.",
-            doc_file.display()
-        );
-    }
+    // Refactorizado: usa require_file_exists para eliminar comprobaciones duplicadas entre comandos
+    code_parser::require_file_exists(code_file, "código")?;
+    code_parser::require_file_exists(doc_file, "documentación")?;
 
     println!("DocsGuard Scaffold — Vinculación interactiva código ↔ documentación\n");
 

@@ -123,20 +123,11 @@ fn main() -> Result<()> {
 }
 
 fn run_check(code_files: &[PathBuf], doc_file: &Path, project_root: &Path) -> Result<()> {
+    // Refactorizado: usa require_file_exists para eliminar comprobaciones duplicadas entre comandos
     for code_file in code_files {
-        if !code_file.exists() {
-            anyhow::bail!(
-                "Archivo de código no encontrado: {}\n    -> Verifica que la ruta sea correcta.",
-                code_file.display()
-            );
-        }
+        code_parser::require_file_exists(code_file, "código")?;
     }
-    if !doc_file.exists() {
-        anyhow::bail!(
-            "Archivo de documentación no encontrado: {}\n    -> Verifica que la ruta sea correcta.",
-            doc_file.display()
-        );
-    }
+    code_parser::require_file_exists(doc_file, "documentación")?;
 
     println!("DocsGuard — Verificando enlaces código ↔ documentación\n");
     println!("  Docs: {}", doc_file.display());

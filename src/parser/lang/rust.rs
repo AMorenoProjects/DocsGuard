@@ -3,31 +3,19 @@
 //! Extrae funciones de archivos Rust y busca anotaciones `/// @docs: [id]`
 //! en los doc-comments inmediatamente anteriores a la declaración.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::Path;
-use tree_sitter::Parser;
 
 use crate::core::types::{Arg, CodeEntity};
+use crate::parser::code_parser;
 use crate::parser::code_parser::find_docs_annotation;
 
 /// Parsea código Rust desde un string.
 pub fn parse_rust_source(source: &str, file_path: &Path) -> Result<Vec<CodeEntity>> {
-    let mut parser = Parser::new();
-    let language = tree_sitter_rust::LANGUAGE;
-    parser
-        .set_language(&language.into())
-        .context("Error al configurar tree-sitter con Rust")?;
-
-    let tree = parser
-        .parse(source, None)
-        .context("Error al parsear el archivo Rust")?;
-
-    let root_node = tree.root_node();
-    let source_bytes = source.as_bytes();
+    // Refactorizado: uso de create_tree para eliminar boilerplate duplicado entre parsers
+    let tree = code_parser::create_tree(source, tree_sitter_rust::LANGUAGE.into(), "Rust")?;
     let mut entities = Vec::new();
-
-    collect_functions(&root_node, source_bytes, file_path, &mut entities)?;
-
+    collect_functions(&tree.root_node(), source.as_bytes(), file_path, &mut entities)?;
     Ok(entities)
 }
 

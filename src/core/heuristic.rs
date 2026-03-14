@@ -16,9 +16,6 @@ pub struct CandidateLink {
     pub function_name: String,
     /// Ubicación en el código.
     pub code_location: String,
-    /// Índice de la sección de documentación en el vector original.
-    #[allow(dead_code)]
-    pub section_index: usize,
     /// ID de la sección de docs.
     pub section_id: String,
     /// Título de la sección de docs.
@@ -56,7 +53,7 @@ pub fn find_candidates(
     for (ei, entity) in &unlinked_entities {
         let mut best_match: Option<CandidateLink> = None;
 
-        for (si, section) in &unlinked_sections {
+        for (_si, section) in &unlinked_sections {
             let confidence = compute_confidence(&entity.name, section);
 
             if confidence >= MIN_CONFIDENCE {
@@ -64,7 +61,6 @@ pub fn find_candidates(
                     entity_index: *ei,
                     function_name: entity.name.clone(),
                     code_location: format!("{}:{}", entity.file_path.display(), entity.line),
-                    section_index: *si,
                     section_id: section.id.clone(),
                     section_title: section.title.clone().unwrap_or_else(|| section.id.clone()),
                     confidence,

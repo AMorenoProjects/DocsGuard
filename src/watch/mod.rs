@@ -15,15 +15,9 @@ use crate::parser::{code_parser, doc_parser};
 
 /// Ejecuta el modo watch: observa cambios y re-valida automáticamente.
 pub fn run_watch(code_file: &Path, doc_file: &Path) -> Result<()> {
-    if !code_file.exists() {
-        anyhow::bail!("Archivo de código no encontrado: {}", code_file.display());
-    }
-    if !doc_file.exists() {
-        anyhow::bail!(
-            "Archivo de documentación no encontrado: {}",
-            doc_file.display()
-        );
-    }
+    // Refactorizado: usa require_file_exists para eliminar comprobaciones duplicadas entre comandos
+    code_parser::require_file_exists(code_file, "código")?;
+    code_parser::require_file_exists(doc_file, "documentación")?;
 
     let code_file = std::fs::canonicalize(code_file)
         .with_context(|| format!("No se pudo resolver la ruta: {}", code_file.display()))?;

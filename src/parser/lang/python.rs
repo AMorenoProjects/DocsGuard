@@ -3,31 +3,19 @@
 //! Extrae funciones de archivos Python y busca anotaciones `# @docs: [id]`
 //! en los comentarios inmediatamente anteriores a la declaración.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use std::path::Path;
-use tree_sitter::Parser;
 
 use crate::core::types::{Arg, CodeEntity};
+use crate::parser::code_parser;
 use crate::parser::code_parser::find_docs_annotation;
 
 /// Parsea código Python desde un string.
 pub fn parse_python_source(source: &str, file_path: &Path) -> Result<Vec<CodeEntity>> {
-    let mut parser = Parser::new();
-    let language = tree_sitter_python::LANGUAGE;
-    parser
-        .set_language(&language.into())
-        .context("Error al configurar tree-sitter con Python")?;
-
-    let tree = parser
-        .parse(source, None)
-        .context("Error al parsear el archivo Python")?;
-
-    let root_node = tree.root_node();
-    let source_bytes = source.as_bytes();
+    // Refactorizado: uso de create_tree para eliminar boilerplate duplicado entre parsers
+    let tree = code_parser::create_tree(source, tree_sitter_python::LANGUAGE.into(), "Python")?;
     let mut entities = Vec::new();
-
-    collect_functions(&root_node, source_bytes, file_path, &mut entities)?;
-
+    collect_functions(&tree.root_node(), source.as_bytes(), file_path, &mut entities)?;
     Ok(entities)
 }
 
@@ -113,6 +101,24 @@ fn extract_function(
     }))
 }
 
+/// Extrae nombre y tipo de un nodo `typed_parameter` de Python.
+///
+/// Refactorizado: función DRY que elimina la duplicación de lógica idéntica
+/// en los arms `typed_parameter` y `typed_default_parameter`.
+fn extract_typed_param_info(node: &tree_sitter::Node, source: &[u8]) -> (String, Option<String>) {
+    let mut param_name = String::new();
+    let mut type_name = None;
+    let mut cursor = node.walk();
+    for child in node.children(&mut cursor) {
+        if child.kind() == "identifier" {
+            param_name = child.utf8_text(source).unwrap_or("").to_string();
+        } else if child.kind() == "type" {
+            type_name = child.utf8_text(source).ok().map(String::from);
+        }
+    }
+    (param_name, type_name)
+}
+
 /// Extrae los parámetros de una función Python.
 fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Vec<Arg>> {
     let mut args = Vec::new();
@@ -122,74 +128,41 @@ fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Ve
         None => return Ok(args),
     };
 
+    let is_self_or_cls = |name: &str| name == "self" || name == "cls";
+
     let mut cursor = params_node.walk();
     for child in params_node.children(&mut cursor) {
-        if child.kind() == "identifier" {
-            let param_name = child.utf8_text(source).unwrap_or("").to_string();
-            if param_name != "self" && param_name != "cls" {
-                args.push(Arg {
-                    name: param_name,
-                    type_name: None,
-                    description: None,
-                });
-            }
-        } else if child.kind() == "typed_parameter" {
-            // El `typed_parameter` no tiene fields `name` o `type`,
-            // sino que sus hijos anónimos proveen esta información.
-            // Para Python, el primer hijo usualmente es el identifier, y hay un `type` child.
-            let mut param_name = String::new();
-            let mut type_name = None;
-
-            let mut inner_cursor = child.walk();
-            for inner_child in child.children(&mut inner_cursor) {
-                if inner_child.kind() == "identifier" {
-                    param_name = inner_child.utf8_text(source).unwrap_or("").to_string();
-                } else if inner_child.kind() == "type" {
-                    type_name = inner_child.utf8_text(source).ok().map(String::from);
+        match child.kind() {
+            "identifier" => {
+                let param_name = child.utf8_text(source).unwrap_or("").to_string();
+                if !is_self_or_cls(&param_name) {
+                    args.push(Arg { name: param_name, type_name: None, description: None });
                 }
             }
-
-            if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
-                args.push(Arg {
-                    name: param_name,
-                    type_name,
-                    description: None,
-                });
+            "typed_parameter" => {
+                // Refactorizado: usa extract_typed_param_info en lugar de duplicar la lógica
+                let (param_name, type_name) = extract_typed_param_info(&child, source);
+                if !is_self_or_cls(&param_name) && !param_name.is_empty() {
+                    args.push(Arg { name: param_name, type_name, description: None });
+                }
             }
-        } else if child.kind() == "default_parameter" || child.kind() == "typed_default_parameter" {
-             let name_node = child.child_by_field_name("name");
-             if let Some(name_n) = name_node {
-                  if name_n.kind() == "identifier" {
-                       let param_name = name_n.utf8_text(source).unwrap_or("").to_string();
-                        if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
-                             args.push(Arg {
-                                  name: param_name,
-                                  type_name: None,
-                                  description: None,
-                             });
+            "default_parameter" | "typed_default_parameter" => {
+                if let Some(name_n) = child.child_by_field_name("name") {
+                    if name_n.kind() == "identifier" {
+                        let param_name = name_n.utf8_text(source).unwrap_or("").to_string();
+                        if !is_self_or_cls(&param_name) && !param_name.is_empty() {
+                            args.push(Arg { name: param_name, type_name: None, description: None });
                         }
-                  } else if name_n.kind() == "typed_parameter" {
-                       let mut param_name = String::new();
-                       let mut type_name = None;
-
-                       let mut inner_cursor = name_n.walk();
-                       for inner_child in name_n.children(&mut inner_cursor) {
-                            if inner_child.kind() == "identifier" {
-                                 param_name = inner_child.utf8_text(source).unwrap_or("").to_string();
-                            } else if inner_child.kind() == "type" {
-                                 type_name = inner_child.utf8_text(source).ok().map(String::from);
-                            }
-                       }
-
-                       if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
-                            args.push(Arg {
-                                 name: param_name,
-                                 type_name,
-                                 description: None,
-                            });
-                       }
-                  }
-             }
+                    } else if name_n.kind() == "typed_parameter" {
+                        // Refactorizado: usa extract_typed_param_info en lugar de duplicar la lógica
+                        let (param_name, type_name) = extract_typed_param_info(&name_n, source);
+                        if !is_self_or_cls(&param_name) && !param_name.is_empty() {
+                            args.push(Arg { name: param_name, type_name, description: None });
+                        }
+                    }
+                }
+            }
+            _ => {}
         }
     }
 
@@ -209,26 +182,20 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn dump_python_ast() {
+    fn parse_python_function_with_annotation() {
         let source = r#"
 # @docs: [python-test]
 def python_test(a: int, b: str) -> bool:
     return True
 "#;
-        let mut parser = Parser::new();
-        let language = tree_sitter_python::LANGUAGE;
-        parser
-            .set_language(&language.into())
-            .unwrap();
-
-        let tree = parser
-            .parse(source, None)
-            .unwrap();
-
-        println!("{}", tree.root_node().to_sexp());
-        
-        // Also let's run the parser:
         let entities = parse_python_source(source, &PathBuf::from("test.py")).unwrap();
-        println!("{:#?}", entities);
+        assert_eq!(entities.len(), 1);
+        let entity = &entities[0];
+        assert_eq!(entity.name, "python_test");
+        assert_eq!(entity.doc_id, Some("python-test".to_string()));
+        assert_eq!(entity.return_type.as_deref(), Some("bool"));
+        assert_eq!(entity.args.len(), 2);
+        assert_eq!(entity.args[0].name, "a");
+        assert_eq!(entity.args[1].name, "b");
     }
 }

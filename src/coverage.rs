@@ -61,13 +61,9 @@ impl CoverageReport {
 ///
 /// Sale con código 1 si la cobertura total está por debajo de `min_coverage`.
 pub fn run_coverage(code_files: &[PathBuf], min_coverage: u8) -> Result<()> {
+    // Refactorizado: usa require_file_exists para eliminar comprobaciones duplicadas entre comandos
     for file in code_files {
-        if !file.exists() {
-            anyhow::bail!(
-                "Archivo no encontrado: {}\n    -> Verifica que la ruta sea correcta.",
-                file.display()
-            );
-        }
+        code_parser::require_file_exists(file, "código")?;
     }
 
     let report = build_report(code_files)?;

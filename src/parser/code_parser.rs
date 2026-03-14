@@ -46,6 +46,39 @@ impl Language {
 /// Tamaño máximo de archivo para prevenir DoS (10 MB).
 const MAX_FILE_SIZE: u64 = 10 * 1024 * 1024;
 
+/// Inicializa un Parser de tree-sitter y parsea el source en un solo paso.
+///
+/// Refactorizado: función DRY compartida por todos los parsers de lenguaje —
+/// elimina ~10 líneas de boilerplate idéntico en cada módulo.
+pub fn create_tree(
+    source: &str,
+    language: tree_sitter::Language,
+    lang_name: &str,
+) -> Result<tree_sitter::Tree> {
+    let mut parser = tree_sitter::Parser::new();
+    parser
+        .set_language(&language)
+        .with_context(|| format!("Error al configurar tree-sitter con {}", lang_name))?;
+    parser
+        .parse(source, None)
+        .ok_or_else(|| anyhow::anyhow!("Error al parsear el archivo {}", lang_name))
+}
+
+/// Verifica que un archivo existe y retorna un error educativo si no.
+///
+/// Refactorizado: función DRY compartida por todos los comandos CLI —
+/// elimina el patrón repetido `if !path.exists() { bail!(...) }`.
+pub fn require_file_exists(path: &Path, kind: &str) -> Result<()> {
+    if !path.exists() {
+        anyhow::bail!(
+            "Archivo de {} no encontrado: {}\n    -> Verifica que la ruta sea correcta.",
+            kind,
+            path.display()
+        );
+    }
+    Ok(())
+}
+
 /// @docs: [parse-code-file]
 /// Parsea un archivo de código auto-detectando el lenguaje por extensión.
 pub fn parse_code_file(file_path: &Path) -> Result<Vec<CodeEntity>> {
