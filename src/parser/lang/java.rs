@@ -139,3 +139,32 @@ fn extract_return_type(func_node: &tree_sitter::Node, source: &[u8]) -> Option<S
         .and_then(|n| n.utf8_text(source).ok())
         .map(String::from)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_parse_java_method() {
+        let source = r#"
+class Test {
+    // @docs: [java-test]
+    public boolean javaTest(int a, String b) {
+        return true;
+    }
+}
+        "#;
+        let entities = parse_java_source(source, &PathBuf::from("test.java")).unwrap();
+        assert_eq!(entities.len(), 1);
+        let entity = &entities[0];
+        assert_eq!(entity.name, "javaTest");
+        assert_eq!(entity.doc_id, Some("java-test".to_string()));
+        assert_eq!(entity.return_type, Some("boolean".to_string()));
+        assert_eq!(entity.args.len(), 2);
+        assert_eq!(entity.args[0].name, "a");
+        assert_eq!(entity.args[0].type_name, Some("int".to_string()));
+        assert_eq!(entity.args[1].name, "b");
+        assert_eq!(entity.args[1].type_name, Some("String".to_string()));
+    }
+}

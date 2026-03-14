@@ -141,3 +141,32 @@ fn extract_return_type(func_node: &tree_sitter::Node, source: &[u8]) -> Option<S
         .and_then(|n| n.utf8_text(source).ok())
         .map(String::from)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_parse_go_function() {
+        let source = r#"
+package main
+
+// @docs: [go-test]
+func goTest(a int, b string) bool {
+    return true
+}
+        "#;
+        let entities = parse_go_source(source, &PathBuf::from("test.go")).unwrap();
+        assert_eq!(entities.len(), 1);
+        let entity = &entities[0];
+        assert_eq!(entity.name, "goTest");
+        assert_eq!(entity.doc_id, Some("go-test".to_string()));
+        assert_eq!(entity.return_type, Some("bool".to_string()));
+        assert_eq!(entity.args.len(), 2);
+        assert_eq!(entity.args[0].name, "a");
+        assert_eq!(entity.args[0].type_name, Some("int".to_string()));
+        assert_eq!(entity.args[1].name, "b");
+        assert_eq!(entity.args[1].type_name, Some("string".to_string()));
+    }
+}

@@ -96,7 +96,8 @@ fn extract_function(
     let args = extract_parameters(func_node, source)?;
     let return_type = extract_return_type(func_node, source);
 
-    // En Python, los comentarios `#` son nodos `comment` en tree-sitter
+    // En Python, los comentarios `#` son nodos `comment` en tree-sitter.
+    // Hay que buscarlos como hermanos del `function_definition` o del `decorated_definition`
     let doc_id = find_docs_annotation(func_node, source, parent_node, "comment");
 
     let line = func_node.start_position().row + 1;
@@ -113,8 +114,6 @@ fn extract_function(
 }
 
 /// Extrae los parámetros de una función Python.
-/// En tree-sitter-python, los parámetros están en el nodo `parameters`.
-/// Los elementos pueden ser identificadores simples o `typed_parameter`.
 fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Vec<Arg>> {
     let mut args = Vec::new();
 
@@ -125,83 +124,111 @@ fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Ve
 
     let mut cursor = params_node.walk();
     for child in params_node.children(&mut cursor) {
-         if child.kind() == "identifier" {
-             let param_name = child.utf8_text(source).unwrap_or("").to_string();
-             if param_name != "self" && param_name != "cls" {
-                  args.push(Arg {
-                      name: param_name,
-                      type_name: None,
-                      description: None,
-                  });
-             }
-         } else if child.kind() == "typed_parameter" {
-            let param_name = child
-                .child_by_field_name("name")
-                .and_then(|n| n.utf8_text(source).ok())
-                .map(String::from)
-                .unwrap_or_default();
+        if child.kind() == "identifier" {
+            let param_name = child.utf8_text(source).unwrap_or("").to_string();
+            if param_name != "self" && param_name != "cls" {
+                args.push(Arg {
+                    name: param_name,
+                    type_name: None,
+                    description: None,
+                });
+            }
+        } else if child.kind() == "typed_parameter" {
+            // El `typed_parameter` no tiene fields `name` o `type`,
+            // sino que sus hijos anónimos proveen esta información.
+            // Para Python, el primer hijo usualmente es el identifier, y hay un `type` child.
+            let mut param_name = String::new();
+            let mut type_name = None;
 
-            let type_name = child
-                .child_by_field_name("type")
-                .and_then(|n| n.utf8_text(source).ok())
-                .map(String::from);
-
-             if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
-                 args.push(Arg {
-                     name: param_name,
-                     type_name,
-                     description: None,
-                 });
-             }
-         } else if child.kind() == "default_parameter" {
-            let name_node = child.child_by_field_name("name");
-            if let Some(name_n) = name_node {
-                let mut type_name = None;
-                let mut param_name = name_n.utf8_text(source).unwrap_or("").to_string();
-
-                if name_n.kind() == "typed_parameter" {
-                    param_name = name_n.child_by_field_name("name").and_then(|n| n.utf8_text(source).ok()).unwrap_or("").to_string();
-                    type_name = name_n.child_by_field_name("type").and_then(|n| n.utf8_text(source).ok()).map(String::from);
-                }
-
-                if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
-                     args.push(Arg {
-                         name: param_name,
-                         type_name,
-                         description: None,
-                     });
+            let mut inner_cursor = child.walk();
+            for inner_child in child.children(&mut inner_cursor) {
+                if inner_child.kind() == "identifier" {
+                    param_name = inner_child.utf8_text(source).unwrap_or("").to_string();
+                } else if inner_child.kind() == "type" {
+                    type_name = inner_child.utf8_text(source).ok().map(String::from);
                 }
             }
-         } else if child.kind() == "typed_default_parameter" {
-             let param_name = child
-                .child_by_field_name("name")
-                .and_then(|n| n.utf8_text(source).ok())
-                .map(String::from)
-                .unwrap_or_default();
 
-            let type_name = child
-                .child_by_field_name("type")
-                .and_then(|n| n.utf8_text(source).ok())
-                .map(String::from);
+            if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
+                args.push(Arg {
+                    name: param_name,
+                    type_name,
+                    description: None,
+                });
+            }
+        } else if child.kind() == "default_parameter" || child.kind() == "typed_default_parameter" {
+             let name_node = child.child_by_field_name("name");
+             if let Some(name_n) = name_node {
+                  if name_n.kind() == "identifier" {
+                       let param_name = name_n.utf8_text(source).unwrap_or("").to_string();
+                        if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
+                             args.push(Arg {
+                                  name: param_name,
+                                  type_name: None,
+                                  description: None,
+                             });
+                        }
+                  } else if name_n.kind() == "typed_parameter" {
+                       let mut param_name = String::new();
+                       let mut type_name = None;
 
-             if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
-                 args.push(Arg {
-                     name: param_name,
-                     type_name,
-                     description: None,
-                 });
+                       let mut inner_cursor = name_n.walk();
+                       for inner_child in name_n.children(&mut inner_cursor) {
+                            if inner_child.kind() == "identifier" {
+                                 param_name = inner_child.utf8_text(source).unwrap_or("").to_string();
+                            } else if inner_child.kind() == "type" {
+                                 type_name = inner_child.utf8_text(source).ok().map(String::from);
+                            }
+                       }
+
+                       if param_name != "self" && param_name != "cls" && !param_name.is_empty() {
+                            args.push(Arg {
+                                 name: param_name,
+                                 type_name,
+                                 description: None,
+                            });
+                       }
+                  }
              }
-         }
+        }
     }
 
     Ok(args)
 }
 
-/// Extrae el tipo de retorno de una función Python.
-/// En tree-sitter-python, el campo es `return_type`.
 fn extract_return_type(func_node: &tree_sitter::Node, source: &[u8]) -> Option<String> {
     func_node
         .child_by_field_name("return_type")
         .and_then(|n| n.utf8_text(source).ok())
         .map(String::from)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn dump_python_ast() {
+        let source = r#"
+# @docs: [python-test]
+def python_test(a: int, b: str) -> bool:
+    return True
+"#;
+        let mut parser = Parser::new();
+        let language = tree_sitter_python::LANGUAGE;
+        parser
+            .set_language(&language.into())
+            .unwrap();
+
+        let tree = parser
+            .parse(source, None)
+            .unwrap();
+
+        println!("{}", tree.root_node().to_sexp());
+        
+        // Also let's run the parser:
+        let entities = parse_python_source(source, &PathBuf::from("test.py")).unwrap();
+        println!("{:#?}", entities);
+    }
 }

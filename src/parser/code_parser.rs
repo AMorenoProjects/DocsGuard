@@ -127,12 +127,14 @@ pub fn find_docs_annotation(
     None
 }
 
-/// Extrae el ID de una anotación `/// @docs: [id]` o `// @docs: [id]`.
+/// Extrae el ID de una anotación `/// @docs: [id]`, `// @docs: [id]`, o `# @docs: [id]`.
 pub fn extract_docs_id_from_comment(comment: &str) -> Option<String> {
     let trimmed = comment.trim();
     let content = if let Some(rest) = trimmed.strip_prefix("///") {
         rest
     } else if let Some(rest) = trimmed.strip_prefix("//") {
+        rest
+    } else if let Some(rest) = trimmed.strip_prefix("#") {
         rest
     } else {
         return None;
