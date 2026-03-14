@@ -16,7 +16,12 @@ pub fn parse_typescript_source(source: &str, file_path: &Path) -> Result<Vec<Cod
         "TypeScript",
     )?;
     let mut entities = Vec::new();
-    collect_functions(&tree.root_node(), source.as_bytes(), file_path, &mut entities)?;
+    collect_functions(
+        &tree.root_node(),
+        source.as_bytes(),
+        file_path,
+        &mut entities,
+    )?;
     Ok(entities)
 }
 

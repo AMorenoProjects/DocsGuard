@@ -15,7 +15,12 @@ pub fn parse_go_source(source: &str, file_path: &Path) -> Result<Vec<CodeEntity>
     // Refactorizado: uso de create_tree para eliminar boilerplate duplicado entre parsers
     let tree = code_parser::create_tree(source, tree_sitter_go::LANGUAGE.into(), "Go")?;
     let mut entities = Vec::new();
-    collect_functions(&tree.root_node(), source.as_bytes(), file_path, &mut entities)?;
+    collect_functions(
+        &tree.root_node(),
+        source.as_bytes(),
+        file_path,
+        &mut entities,
+    )?;
     Ok(entities)
 }
 
@@ -92,31 +97,36 @@ fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Ve
 
     let mut cursor = params_node.walk();
     for child in params_node.children(&mut cursor) {
-         if child.kind() == "parameter_declaration" {
-              let mut temp_names = Vec::new();
-              let mut type_name = None;
+        if child.kind() == "parameter_declaration" {
+            let mut temp_names = Vec::new();
+            let mut type_name = None;
 
-              let mut p_cursor = child.walk();
-              for p_child in child.children(&mut p_cursor) {
-                   if p_child.kind() == "identifier" {
-                        if let Ok(name) = p_child.utf8_text(source) {
-                            temp_names.push(name.to_string());
-                        }
-                   } else if p_child.kind() == "type_identifier" || p_child.kind() == "pointer_type" || p_child.kind() == "slice_type" || p_child.kind() == "map_type" || p_child.kind() == "qualified_type" {
-                        if let Ok(t) = p_child.utf8_text(source) {
-                            type_name = Some(t.to_string());
-                        }
-                   }
-              }
+            let mut p_cursor = child.walk();
+            for p_child in child.children(&mut p_cursor) {
+                if p_child.kind() == "identifier" {
+                    if let Ok(name) = p_child.utf8_text(source) {
+                        temp_names.push(name.to_string());
+                    }
+                } else if p_child.kind() == "type_identifier"
+                    || p_child.kind() == "pointer_type"
+                    || p_child.kind() == "slice_type"
+                    || p_child.kind() == "map_type"
+                    || p_child.kind() == "qualified_type"
+                {
+                    if let Ok(t) = p_child.utf8_text(source) {
+                        type_name = Some(t.to_string());
+                    }
+                }
+            }
 
-              for name in temp_names {
-                  args.push(Arg {
-                      name,
-                      type_name: type_name.clone(),
-                      description: None,
-                  });
-              }
-         }
+            for name in temp_names {
+                args.push(Arg {
+                    name,
+                    type_name: type_name.clone(),
+                    description: None,
+                });
+            }
+        }
     }
 
     Ok(args)

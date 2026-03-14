@@ -15,7 +15,12 @@ pub fn parse_python_source(source: &str, file_path: &Path) -> Result<Vec<CodeEnt
     // Refactorizado: uso de create_tree para eliminar boilerplate duplicado entre parsers
     let tree = code_parser::create_tree(source, tree_sitter_python::LANGUAGE.into(), "Python")?;
     let mut entities = Vec::new();
-    collect_functions(&tree.root_node(), source.as_bytes(), file_path, &mut entities)?;
+    collect_functions(
+        &tree.root_node(),
+        source.as_bytes(),
+        file_path,
+        &mut entities,
+    )?;
     Ok(entities)
 }
 
@@ -38,22 +43,24 @@ fn collect_functions(
             "class_definition" => {
                 let body = child.child_by_field_name("body");
                 if let Some(body) = body {
-                     collect_functions(&body, source, file_path, entities)?;
+                    collect_functions(&body, source, file_path, entities)?;
                 }
             }
             "decorated_definition" => {
-               if let Some(definition) = child.child_by_field_name("definition") {
+                if let Some(definition) = child.child_by_field_name("definition") {
                     if definition.kind() == "function_definition" {
-                         if let Some(entity) = extract_function(&definition, source, file_path, node)? {
-                             entities.push(entity);
-                         }
+                        if let Some(entity) =
+                            extract_function(&definition, source, file_path, node)?
+                        {
+                            entities.push(entity);
+                        }
                     } else if definition.kind() == "class_definition" {
-                         let body = definition.child_by_field_name("body");
-                         if let Some(body) = body {
-                              collect_functions(&body, source, file_path, entities)?;
-                         }
+                        let body = definition.child_by_field_name("body");
+                        if let Some(body) = body {
+                            collect_functions(&body, source, file_path, entities)?;
+                        }
                     }
-               }
+                }
             }
             _ => {
                 collect_functions(&child, source, file_path, entities)?;
@@ -136,14 +143,22 @@ fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Ve
             "identifier" => {
                 let param_name = child.utf8_text(source).unwrap_or("").to_string();
                 if !is_self_or_cls(&param_name) {
-                    args.push(Arg { name: param_name, type_name: None, description: None });
+                    args.push(Arg {
+                        name: param_name,
+                        type_name: None,
+                        description: None,
+                    });
                 }
             }
             "typed_parameter" => {
                 // Refactorizado: usa extract_typed_param_info en lugar de duplicar la lógica
                 let (param_name, type_name) = extract_typed_param_info(&child, source);
                 if !is_self_or_cls(&param_name) && !param_name.is_empty() {
-                    args.push(Arg { name: param_name, type_name, description: None });
+                    args.push(Arg {
+                        name: param_name,
+                        type_name,
+                        description: None,
+                    });
                 }
             }
             "default_parameter" | "typed_default_parameter" => {
@@ -151,13 +166,21 @@ fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Ve
                     if name_n.kind() == "identifier" {
                         let param_name = name_n.utf8_text(source).unwrap_or("").to_string();
                         if !is_self_or_cls(&param_name) && !param_name.is_empty() {
-                            args.push(Arg { name: param_name, type_name: None, description: None });
+                            args.push(Arg {
+                                name: param_name,
+                                type_name: None,
+                                description: None,
+                            });
                         }
                     } else if name_n.kind() == "typed_parameter" {
                         // Refactorizado: usa extract_typed_param_info en lugar de duplicar la lógica
                         let (param_name, type_name) = extract_typed_param_info(&name_n, source);
                         if !is_self_or_cls(&param_name) && !param_name.is_empty() {
-                            args.push(Arg { name: param_name, type_name, description: None });
+                            args.push(Arg {
+                                name: param_name,
+                                type_name,
+                                description: None,
+                            });
                         }
                     }
                 }

@@ -15,7 +15,12 @@ pub fn parse_java_source(source: &str, file_path: &Path) -> Result<Vec<CodeEntit
     // Refactorizado: uso de create_tree para eliminar boilerplate duplicado entre parsers
     let tree = code_parser::create_tree(source, tree_sitter_java::LANGUAGE.into(), "Java")?;
     let mut entities = Vec::new();
-    collect_functions(&tree.root_node(), source.as_bytes(), file_path, &mut entities)?;
+    collect_functions(
+        &tree.root_node(),
+        source.as_bytes(),
+        file_path,
+        &mut entities,
+    )?;
     Ok(entities)
 }
 
@@ -95,8 +100,8 @@ fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Ve
 
     let mut cursor = params_node.walk();
     for child in params_node.children(&mut cursor) {
-         if child.kind() == "formal_parameter" || child.kind() == "spread_parameter" {
-             let param_name = child
+        if child.kind() == "formal_parameter" || child.kind() == "spread_parameter" {
+            let param_name = child
                 .child_by_field_name("name")
                 .and_then(|n| n.utf8_text(source).ok())
                 .map(String::from)
@@ -107,14 +112,14 @@ fn extract_parameters(func_node: &tree_sitter::Node, source: &[u8]) -> Result<Ve
                 .and_then(|n| n.utf8_text(source).ok())
                 .map(String::from);
 
-             if !param_name.is_empty() {
-                 args.push(Arg {
-                     name: param_name,
-                     type_name,
-                     description: None,
-                 });
-             }
-         }
+            if !param_name.is_empty() {
+                args.push(Arg {
+                    name: param_name,
+                    type_name,
+                    description: None,
+                });
+            }
+        }
     }
 
     Ok(args)

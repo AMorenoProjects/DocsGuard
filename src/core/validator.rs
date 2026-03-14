@@ -216,9 +216,8 @@ fn normalize_type(type_str: &str) -> String {
         "string" | "str" | "&str" | "text" | "&string" => "string".to_string(),
         // Números
         "number" | "integer" | "int" | "i8" | "i16" | "i32" | "i64" | "i128" | "isize" | "u8"
-        | "u16" | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "float" | "double" | "long" | "short" | "byte" | "decimal" => {
-            "number".to_string()
-        }
+        | "u16" | "u32" | "u64" | "u128" | "usize" | "f32" | "f64" | "float" | "double"
+        | "long" | "short" | "byte" | "decimal" => "number".to_string(),
         // Booleanos
         "boolean" | "bool" => "boolean".to_string(),
         // UUID

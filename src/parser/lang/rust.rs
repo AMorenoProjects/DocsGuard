@@ -15,7 +15,12 @@ pub fn parse_rust_source(source: &str, file_path: &Path) -> Result<Vec<CodeEntit
     // Refactorizado: uso de create_tree para eliminar boilerplate duplicado entre parsers
     let tree = code_parser::create_tree(source, tree_sitter_rust::LANGUAGE.into(), "Rust")?;
     let mut entities = Vec::new();
-    collect_functions(&tree.root_node(), source.as_bytes(), file_path, &mut entities)?;
+    collect_functions(
+        &tree.root_node(),
+        source.as_bytes(),
+        file_path,
+        &mut entities,
+    )?;
     Ok(entities)
 }
 
